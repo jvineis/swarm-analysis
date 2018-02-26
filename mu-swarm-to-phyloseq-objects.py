@@ -64,7 +64,7 @@ output_matrix.write("node"+'\t'+'\t'.join(med_matrix_dict['samples'])+'\n')
 
 for key in all_nodes_dict.keys():
     if all_nodes_dict[key].split("|")[0] in med_matrix_dict.keys(): # added .split(";")[0] ####
-        print "success"
+
         output_matrix.write(key.split(':')[0]+'\t'+'\t'.join(med_matrix_dict[all_nodes_dict[key].split("|")[0]])+'\n')
 
 #Add header to output file
