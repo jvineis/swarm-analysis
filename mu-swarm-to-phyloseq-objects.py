@@ -63,8 +63,9 @@ output_matrix = open('PHYLOSEQ-MATRIX-OBJECT.txt', 'w')
 output_matrix.write("node"+'\t'+'\t'.join(med_matrix_dict['samples'])+'\n')
 
 for key in all_nodes_dict.keys():
-    if all_nodes_dict[key] in med_matrix_dict.keys(): # added .split(";")[0] ####
-        output_matrix.write(key.split(':')[0]+'\t'+'\t'.join(med_matrix_dict[all_nodes_dict[key]])+'\n')
+    if all_nodes_dict[key].split("|")[0] in med_matrix_dict.keys(): # added .split(";")[0] ####
+        print "success"
+        output_matrix.write(key.split(':')[0]+'\t'+'\t'.join(med_matrix_dict[all_nodes_dict[key].split("|")[0]])+'\n')
 
 #Add header to output file
 output_tax.write("node"+';'+"db_hit_id"+';'+"Kingdom"+";"+"Phylum"+';'+"Class"+';'+"Order"+';'+"Family"+';'+"Genus"+';'+"Species"+';'+"Environment"+";"+"ASV"+'\n')
