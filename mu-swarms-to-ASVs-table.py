@@ -3,11 +3,11 @@
 import argparse
 from Bio import SeqIO
 
-parser = argparse.ArgumentParser(description='''This script takes the output returned from swarmv2.2.2 -w flag, which is a list of lists '\n' containing the sequence ids for each swarm, and converts it into a '\n' ASV count matrix.''')
-parser.add_argument('-s' , help = "The swarm output of the -w flag  -  commonly run like this: swarm -d 1 -f -t 10 -z pooled-samples-derep.fa -s pooled-samples-derep-stats.txt -w pooled-samples-node-representatives.fa -o pooled-samples-node-table.txt")
+parser = argparse.ArgumentParser(description='''This script takes the output returned from swarmv2.2.2 -w flag, which is a list of lists '\n' containing the sequence ids for each swarm, and converts it into a '\n' ASV count matrix. It will also write a reduced fasta file for the representative nodes if you want to remove swarms below a particular count threshold''')
+parser.add_argument('-s' , help = "The swarm output of the -o flag: a list of ids for each swarm (therefore a list of lists)  -  commonly run like this: swarm -d 1 -f -t 10 -z pooled-samples-derep.fa -s pooled-samples-derep-stats.txt -w pooled-samples-node-representatives.fa -o pooled-samples-node-table.txt")
 parser.add_argument('-o' , help = "The filename for the output table with node ids as rows and samples as columns.")
-parser.add_argument('-l' , help = "A single column list of the sample names")
-parser.add_argument('-n' , help = "The swarm representative nodes")
+parser.add_argument('-l' , help = "A single column list of the sample names. eg.  for a dereplicated sequence in your analysis that looks like this V1-33-33-5-nrfA_415|M01781:52:000000000-ARME0:1:1101:13516:15760;size=47 from the swarm table, the sample name would be V1-33-33-5-nrfA")
+parser.add_argument('-n' , help = "The swarm representative nodes which is the -w flag in swarm")
 parser.add_argument('-min', help = "The threshold value to keep a swarm,  anything observed fewer than this many times will be removed")
 args = parser.parse_args()
 

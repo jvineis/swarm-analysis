@@ -4,12 +4,12 @@ import sys
 import csv
 import argparse
 
-parser = argparse.ArgumentParser(description='''The script takes the output from MED and vsearch to create a taxonomy object and a matrix object that is compatible with phyloseq''')
+parser = argparse.ArgumentParser(description='''The script takes the output from SWARM and vsearch to create a taxonomy object and a matrix object that is compatible with phyloseq''')
 parser.add_argument('-tax_ref', help = 'the reference taxonomy table that matches the ref fasta file searched agaist with a taxonomy string e.g. silva.tax')
-parser.add_argument('-hits', help = 'the output from vsearch when run like this - vsearch --usearch_global NODE-REPRESENTATIVES.fasta --db /groups/g454/blastdbs/gast_distributio\
+parser.add_argument('-hits', help = 'the output from vsearch when run like this - vsearch --usearch_global reduced-node-fasta-min10-famsa.fa --db /groups/g454/blastdbs/gast_distributio\
 ns/silva119.fa --blast6out NODE-HITS.txt --id 0.6  *** keep in mind that the --db is dependent on the gene of interest')
-parser.add_argument('-med', help = 'the count or percent abundance matrix produced by MED')
-parser.add_argument('-fa', help = 'the fasta file "NODE-REPRESENTATIVES.fasta"')
+parser.add_argument('-med', help = 'the count or percent abundance matrix produced by mu-swarms-to-ASVs-table.py')
+parser.add_argument('-fa', help = 'the fasta file of node hits produced by mu-swarms-to-ASVs-table.py - could be something like this "reduced-node-fasta-min10-famsa.fa"')
 args = parser.parse_args()
  
 def open_node_hits_to_dict(sample_name):
@@ -38,7 +38,7 @@ def open_med_table_to_dict(med_table):
         ## transpose the table
         t_table_l = [[table_l[j][i] for j in range(len(table_l))]for i in range(len(table_l[0]))]
         for line in t_table_l:
-            med[line[0]] = line[1:len(line)]
+            med[line[0].split("|")[0]] = line[1:len(line)]
     return med
 
 def open_NODE_REPRESENTATIVES(node_fasta):
@@ -55,6 +55,7 @@ tax_lookup_dict = open_silva_database_to_dict(args.tax_ref)
 med_matrix_dict = open_med_table_to_dict(args.med)
 all_nodes_dict = open_NODE_REPRESENTATIVES(args.fa)
 
+
 #  Open and output file
 output_tax = open('PHYLOSEQ-TAX-OBJECT.txt', 'w')
 output_matrix = open('PHYLOSEQ-MATRIX-OBJECT.txt', 'w')
@@ -66,16 +67,18 @@ for key in all_nodes_dict.keys():
         output_matrix.write(key.split(':')[0]+'\t'+'\t'.join(med_matrix_dict[all_nodes_dict[key]])+'\n')
 
 #Add header to output file
-output_tax.write("node"+';'+"db_hit_id"+';'+"Phylum"+';'+"Class"+';'+"Order"+';'+"Family"+';'+"Genus"+';'+"Species"+';'+"ASV"+'\n')
+output_tax.write("node"+';'+"db_hit_id"+';'+"Kingdom"+";"+"Phylum"+';'+"Class"+';'+"Order"+';'+"Family"+';'+"Genus"+';'+"Species"+';'+"Environment"+";"+"ASV"+'\n')
  
 # Add the node and taxonomy string to the output file
 for key in node_hits_dict.keys():
-    output_tax.write(str(key.split(":")[0])+';'+str(node_hits_dict[key].split(";")[0])+';'+str(tax_lookup_dict[node_hits_dict[key]][0])+';'+str(key.split(";")[0])+'\n')
+    genome = node_hits_dict[key].split("|")[0]
+    
+    output_tax.write(str(key.split(":")[0])+';'+str(node_hits_dict[key].split(";")[0])+';'+';'.join(tax_lookup_dict[genome])+';'+str(key.split(";")[0])+'\n')
     
 #  Add the nodes that rec'd no hit in the  silva db to the taxonomic output.
 for key in all_nodes_dict.keys():
     if key not in node_hits_dict.keys():
-        output_tax.write(str(key)+';'+"na;"+"na;"+"na;"+"na;"+"na;"+"na;"+"na;"+'\n')
+        output_tax.write(str(key.split(":")[0])+';'+"na;"+"na;"+"na;"+"na;"+"na;"+"na;"+"na;"+"na;"+"na;"+"na;"+'\n')
 
 output_tax.close()
 output_matrix.close()

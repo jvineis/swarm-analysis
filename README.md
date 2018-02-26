@@ -87,13 +87,62 @@ Once again its the same and here is the config_generator.shx
 
 # SWARM 
 
-1.I recommend running swarm at d = 1.  This provides the highest resolution possible and we can deal with that downstream.  The ouput of swarm required some scripting to make it usable.  First derplicate your pooled(concatenated) sequences using vsearch and then run SWARM
-  
-    vsearch --derep_fulllength pooled-samples.fa --sizeout --relabel_sha1 --fasta_width 0 --output pooled-samples-derep.fa
+1.I recommend running swarm at d = 1.  This provides the highest resolution possible and we can deal with that downstream.  The ouput of swarm required some scripting to make it usable.  First concatenate your merged fasta files, then derplicate your pooled(concatenated) sequences using vsearch, and then run SWARM
+    
+    cat *MERGED > pooled-samples.fa
+    vsearch --derep_fulllength pooled-samples.fa --sizeout --output pooled-samples-derep.fa
     swarm -d 1 -f -t 10 -z pooled-samples-derep.fa -s pooled-samples-derep-stats.txt -w pooled-samples-node-representatives.fa -o pooled-samples-node-table.txt
     
-The -f specifies fastidious OTU breaking which separates two abundant nodes that are linked with low aboundant nodes
+The -f specifies fastidious OTU joining of linked low aboundant nodes
 
-2.Run the mu-swarms-to-ASVs-table.py to convert the SWARM output into a count matrix and filter out low abundant nodes.  
+2.Run the mu-swarms-to-ASVs-table.py to convert the SWARM output into a count matrix and filter out low abundant nodes.  The script will also ouput a fasta file with the representative nodes that meet the "min" threshold criteria - called reduced-node-fasta-'min'.fa.  
 
-      swarm-d1-fastidious joevineis$ python ~/scripts/mu-swarms-to-ASVs-table.py -s swarm-d1-fastidious-node-table.txt -o swarm-test-count.txt -l ../samples.txt -n swarm-d1-fastidious-node-representatives.fa -min 10
+    python ~/scripts/mu-swarms-to-ASVs-table.py -s pooled-samples-node-table.txt -o swarm-test-count.txt -l ../samples.txt -n pooled-samples-node-representatives.fa -min 10
+
+3.Now you can run famsa to align and trimal to remove large gaps in the alignment and then build a tree with FastTree.
+
+    famsa reduced-node-fasta-min10.fa reduced-node-fasta-min10-famsa.fa
+    trimal -in reduced-node-fasta-min10-famsa.fa -out reduced-node-fasta-min10-famsa-trimal.fa -gappyout
+    FastTree -nt reduced-node-fasta-min10-famsa-trimal.fa > reduced-node-fasta-min10-famsa-trimal.tre
+    vsearch --usearch_global reduced-node-fasta-min10.fa --db ~/scripts/databas/functional_fa_dbs/nrfA_ncbi_parks.fa --blast6out NODE-HITS.txt --id 0.6
+
+4.Build a phyloseq output from these results 
+
+    python ~/scripts/mu-swarm-to-phyloseq-objects.py -tax_ref ~/scripts/databas/functional_fa_dbs/ncbi-parks-LINEAGE-STRINGS.txt -hits NODE-HITS.txt -med swarm-d1-fastidious-min10-matrix-count.txt -fa reduced-node-fasta-min10.fa
+
+5.You could run this as a bash script and run for multiple min count thresholds like this
+
+    #!/bin/bash
+
+    for i in 10 3 0
+    do
+	mkdir min-count"$i"
+    	python ~/Documents/swarm-analysis/mu-swarms-to-ASVs-table.py -s pooled-samples-node-table.txt -o reduced-min"$i"-matrix-count.txt -l ../samples.txt -n pooled-samples-node-representatives.fa -min "$i"
+    	vsearch --usearch_global reduced-node-fasta-min"$i".fa --db ~/Documents/BOWEN/functional_gene_db/dsrB/pfam_NIR_SIR/dsrB_ncbi_parks.fa --blast6out NODES-min"$i"-HITS.txt --id 0.6
+    	python ~/Documents/swarm-analysis/mu-swarm-to-phyloseq-objects.py -tax_ref ~/scripts/databas/functional_fa_dbs/ncbi-parks-LINEAGE-STRINGS.txt -hits NODES-min"$i"-HITS.txt -med reduced-min"$i"-matrix-count.txt -fa reduced-node-fasta-min"$i".fa
+    	mv PHYLOSEQ-MATRIX-OBJECT.txt PHYLOSEQ-TAX-OBJECT.txt reduced-node-fasta-min"$i".fa reduced-min"$i"-matrix-count.txt min-count"$i"
+    	famsa min-count"$i"/reduced-node-fasta-min"$i".fa min-count"i"/reduced-node-fasta-famsa"$i".fa
+    	trimal -in min-count"$i"/reduced-node-fasta-famsa"$i".fa min-count"i"/reduced-node-fasta-famsa-trimal"$i".fa -gappyout
+    	FastTree -nt min-count"$i"/reduced-node-fasta-famsa-trimal"$i".fa > min-count"i"/reduced-node-fasta-famsa-trimal"$i".tre
+    done
+
+
+6.Load this into phyloseq (R) to make beautiful things.  Something like this
+
+    library("phyloseq")
+    library("ape")
+    mat_nirS = read.table("PHYLOSEQ-MATRIX-OBJECT.txt", header = TRUE, sep = "\t", row.names = 1)
+    tax_nirS = read.table("PHYLOSEQ-TAX-OBJECT.txt", header = TRUE, sep = ";", row.names = 1)
+    meta_nirS = read.table("nrfA-map.txt", header = TRUE, sep = "\t", row.names = 1)
+    tree_nirS = read.tree("nirS_fasttree.tre")    
+
+    mat_nirS = as.matrix(mat_nirS)
+    tax_nirS = as.matrix(tax_nirS)
+
+    OTU = otu_table(mat_nirS, taxa_are_rows = TRUE)
+    TAX = tax_table(tax_nirS)
+    META = sample_data(meta_nirS)
+
+    nrfA_physeq = phyloseq(OTU,TAX,META,tree_nirS)
+  
+
